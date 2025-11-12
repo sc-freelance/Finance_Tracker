@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Finance Tracker</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <h1>💰 AI-Powered Personal Finance Tracker</h1>
+
+  <form id="uploadForm" enctype="multipart/form-data">
+    <label for="modelSelect">Choose Model Type:</label>
+    <select id="modelSelect" name="modelType">
+      <option value="linear">Linear Regression</option>
+      <option value="polynomial" selected>Polynomial Regression</option>
+    </select>
+
+    <div id="degreeContainer" style="display:none;">
+      <label for="degreeSelect">Select Polynomial Degree:</label>
+      <select id="degreeSelect" name="degree">
+        <option value="2">Degree 2</option>
+        <option value="3">Degree 3</option>
+        <option value="4">Degree 4</option>
+      </select>
+    </div>
+
+    <input type="file" name="file" accept=".csv" required />
+    <button type="submit">Upload & Analyze</button>
+  </form>
+
+  <div id="status"></div>
+
+  <div class="chart-container">
+    <canvas id="forecastChart"></canvas>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/static/chart.js"></script>
+</body>
+</html>
