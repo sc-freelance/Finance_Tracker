@@ -29,25 +29,21 @@ form.addEventListener("submit", async (e) => {
     const formData = new FormData(form);
     const modelType = modelSelect.value;
     const degree = degreeSelect.value;
+
+    // Show "loading" message
     showStatus("Uploading and analyzing data...", "loading");
 
-    // --- Upload ---
+    // --- Upload CSV ---
     const uploadRes = await fetch("/upload", { method: "POST", body: formData });
-    let uploadPayload;
-    try { uploadPayload = await uploadRes.json(); } catch (_) { uploadPayload = {}; }
-    if (!uploadRes.ok) throw new Error(uploadPayload.error || `Upload failed (${uploadRes.status})`);
-    showStatus("✅ " + uploadData.message, "success");
+    const uploadData = await uploadRes.json(); // ✅ Define uploadData properly
+    if (!uploadRes.ok) throw new Error(uploadData.error || "Upload failed");
 
-    // --- Forecast ---
+    showStatus("✅ " + (uploadData.message || "File uploaded successfully!"), "success");
+
+    // --- Request Forecast ---
     const forecastRes = await fetch(`/api/forecast?model=${modelType}&degree=${degree}`);
-    let forecastData;
-    try { forecastData = await forecastRes.json(); } catch (e) {
-      const txt = await forecastRes.text();
-      throw new Error(`Bad response: ${txt.slice(0, 200)}...`);
-    }
-
-    if (!forecastRes.ok)
-      throw new Error(forecastData.error || `Forecast failed (${forecastRes.status})`);
+    const forecastData = await forecastRes.json();
+    if (!forecastRes.ok) throw new Error(forecastData.error || "Forecast failed");
 
     // --- Chart rendering ---
     const ctx = chartCanvas.getContext("2d");
@@ -57,7 +53,6 @@ form.addEventListener("submit", async (e) => {
       ...forecastData.past.labels,
       ...forecastData.forecast.labels,
     ];
-
     const pastLength = forecastData.past.labels.length;
 
     const combinedValues = [
@@ -117,6 +112,7 @@ form.addEventListener("submit", async (e) => {
     });
 
     showStatus(`✅ Forecast generated using ${forecastData.model_used}`, "success");
+
   } catch (err) {
     showStatus("❌ Error: " + err.message, "error");
   }
