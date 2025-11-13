@@ -6,53 +6,65 @@ const statusDiv = document.getElementById("status"); // Status message div
 const chartCanvas = document.getElementById("forecastChart"); // Chart canvas element
 let chartInstance = null; // Chart.js instance (initialized later)
 
+// Showcasing the status of upload
+function showStatus(message, type = "loading") {
+  statusDiv.className = "status-box";
+  if (type === "success") statusDiv.classList.add("status-success");
+  else if (type === "error") statusDiv.classList.add("status-error");
+  else statusDiv.classList.add("status-loading");
+  statusDiv.textContent = message;
+  statusDiv.style.display = "block";
+}
+
 // Show/hide degree selection based on model choice
 modelSelect.addEventListener("change", () => {
-  degreeContainer.style.display = 
-    modelSelect.value === "linear" ? "none" : "block";
+  degreeContainer.style.display = modelSelect.value === "linear" ? "none" : "block";
 });
 
 // Handle form submission
-form.addEventListener("submit", async(e) => {
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  
-  const formData = new FormData(form); // Collect form data
-  const modelType = modelSelect.value; // Selected model type 
-  const degree = degreeSelect.value; // Selected polynomial degree
-  statusDiv.textContent = "Uploading and analysing data..."; // Initial status message
 
-  // Upload file to server and request forecast
   try {
-    const uploadRes = await fetch("/upload", { method: "POST", body: formData }); // Upload endpoint
-    const uploadData = await uploadRes.json();// Parse JSON Response
-    if (uploadData.error) throw new Error(uploadData.error); // Handle upload errors
-    statusDiv.textContent = "✅ " + uploadData.message; // Update status on success
+    const formData = new FormData(form);
+    const modelType = modelSelect.value;
+    const degree = degreeSelect.value;
+    showStatus("Uploading and analyzing data...", "loading");
 
-    const forecastRes = await fetch(`/api/forecast?model=${modelType}&degree=${degree}`); // Forecast endpoint
-    const forecastData = await forecastRes.json(); // Parse JSON Response
-    if (forecastData.error) {
-      statusDiv.textContent = "❌ " + forecastData.error; // Handle forecast errors
-      return; // Exit on error
+    // --- Upload ---
+    const uploadRes = await fetch("/upload", { method: "POST", body: formData });
+    let uploadPayload;
+    try { uploadPayload = await uploadRes.json(); } catch (_) { uploadPayload = {}; }
+    if (!uploadRes.ok) throw new Error(uploadPayload.error || `Upload failed (${uploadRes.status})`);
+    showStatus("✅ " + uploadData.message, "success");
+
+    // --- Forecast ---
+    const forecastRes = await fetch(`/api/forecast?model=${modelType}&degree=${degree}`);
+    let forecastData;
+    try { forecastData = await forecastRes.json(); } catch (e) {
+      const txt = await forecastRes.text();
+      throw new Error(`Bad response: ${txt.slice(0, 200)}...`);
     }
 
-    const ctx = chartCanvas.getContext("2d"); // Get canvas context
-    if (chartInstance) chartInstance.destroy(); // Destroy previous chart if exists
-    
-    // Combine past and forecast data for charting
+    if (!forecastRes.ok)
+      throw new Error(forecastData.error || `Forecast failed (${forecastRes.status})`);
+
+    // --- Chart rendering ---
+    const ctx = chartCanvas.getContext("2d");
+    if (chartInstance) chartInstance.destroy();
+
     const combinedLabels = [
       ...forecastData.past.labels,
       ...forecastData.forecast.labels,
     ];
 
-    const pastLength = forecastData.past.labels.length; // Length of past data
-    
-    // Combine past values with nulls for future spacing
+    const pastLength = forecastData.past.labels.length;
+
     const combinedValues = [
       ...forecastData.past.values,
-      ...Array(30).fill(null), // pad future for spacing
+      ...Array(30).fill(null),
     ];
 
-    // Create new Chart.js instance
     chartInstance = new Chart(ctx, {
       type: "line",
       data: {
@@ -87,8 +99,6 @@ form.addEventListener("submit", async(e) => {
           },
         ],
       },
-
-      // Chart configuration options
       options: {
         responsive: true,
         plugins: {
@@ -97,9 +107,7 @@ form.addEventListener("submit", async(e) => {
             text: `Past Spending vs 30-Day Forecast (${forecastData.model_used})`,
             font: { size: 18, weight: "bold" },
           },
-          legend: {
-            labels: { color: "#333" },
-          },
+          legend: { labels: { color: "#333" } },
         },
         scales: {
           x: { title: { display: true, text: "Date" } },
@@ -108,9 +116,8 @@ form.addEventListener("submit", async(e) => {
       },
     });
 
-    // Update status on successful forecast
-    statusDiv.textContent = `✅ Forecast generated using ${forecastData.model_used}`;
+    showStatus(`✅ Forecast generated using ${forecastData.model_used}`, "success");
   } catch (err) {
-    statusDiv.textContent = "❌ Error: " + err.message;
+    showStatus("❌ Error: " + err.message, "error");
   }
 });
